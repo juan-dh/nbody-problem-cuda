@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <random>
 #include <cuda_runtime.h>
 #include <stdlib.h>
@@ -149,6 +150,42 @@ __host__ void initializeBodies(Vec3 *h_q_n, Vec3 *h_p_n, float *h_m, int n_bodie
             h_m[i] = static_cast<float>(mass_dist(gen)) + 0.1f; // Avoid zero mass
         }
     }
+    else if (method == "multiple gaussians")
+    {
+        // Multiple Gaussians method
+        int n_clusters = 5;
+        int cluster_size = n_bodies / n_clusters;
+
+        std::mt19937 gen(std::random_device{}());
+        std::normal_distribution<float> cluster_dist(0.0f, 40.0f);
+        std::normal_distribution<float> q_dist(0.0f, 15.0f);
+        std::normal_distribution<float> p_dist(0.0f, 20.0f);
+        std::uniform_int_distribution<> mass_dist(0, 100);
+
+        for (int c = 0; c < n_clusters; ++c)
+        {
+            float cluster_qx = cluster_dist(gen);
+            float cluster_qy = cluster_dist(gen);
+            float cluster_qz = cluster_dist(gen);
+
+            for (int i = 0; i < cluster_size; ++i)
+            {
+                int idx = c * cluster_size + i;
+                if (idx >= n_bodies)
+                    break;
+
+                h_q_n[idx].x = cluster_qx + q_dist(gen); // Cluster around center
+                h_q_n[idx].y = cluster_qy + q_dist(gen);
+                h_q_n[idx].z = cluster_qz + q_dist(gen);
+
+                h_p_n[idx].x = p_dist(gen);
+                h_p_n[idx].y = p_dist(gen);
+                h_p_n[idx].z = p_dist(gen);
+
+                h_m[idx] = static_cast<float>(mass_dist(gen)) + 0.1f; // Avoid zero mass
+            }
+        }
+    }
 }
 
 __host__ void debug_print_history(Vec3 *h_variable_history, int n_bodies, int n_steps)
@@ -214,16 +251,12 @@ __host__ void copyFromHostToDeviceConst(const T &d_symbol, const T &h_value)
     cudaError_t err = cudaMemcpyToSymbol(d_symbol, &h_value, sizeof(T));
     if (err != cudaSuccess)
     {
-        std::cerr << "Failed to copy to constant memory: "
-                  << cudaGetErrorString(err) << std::endl;
+        std::cerr << "Failed to copy to constant memory: " << cudaGetErrorString(err) << std::endl;
         exit(EXIT_FAILURE);
     }
 }
 
-void saveToCSV(const char *filename,
-               const Vec3 *h_q_history,
-               int N_BODIES,
-               int N_STEPS)
+void saveToCSV(const char *filename, const Vec3 *h_q_history, int N_BODIES, int N_STEPS)
 {
     FILE *file = fopen(filename, "w");
     if (!file)
@@ -241,22 +274,14 @@ void saveToCSV(const char *filename,
         {
             int idx = i + step * N_BODIES;
 
-            fprintf(file, "%d,%d,%f,%f,%f\n",
-                    step,
-                    i,
-                    h_q_history[idx].x,
-                    h_q_history[idx].y,
-                    h_q_history[idx].z);
+            fprintf(file, "%d,%d,%f,%f,%f\n", step, i, h_q_history[idx].x, h_q_history[idx].y, h_q_history[idx].z);
         }
     }
 
     fclose(file);
 }
 
-void saveToBinary(const char *filename,
-                  const Vec3 *h_q_history,
-                  int N_BODIES,
-                  int N_STEPS)
+void saveToBinary(const char *filename, const Vec3 *h_q_history, int N_BODIES, int N_STEPS)
 {
     FILE *file = fopen(filename, "wb");
     if (!file)
@@ -276,15 +301,76 @@ void saveToBinary(const char *filename,
     fclose(file);
 }
 
+#include <tuple>
+
+std::tuple<int, int, std::string, double> parseArguments(int argc, char *argv[])
+{
+
+    // Default values
+    int n_bodies = 100000;
+    int n_steps = 1000;
+    std::string method = "multiple gaussians";
+    double step_size = 1e-3;
+
+    try
+    {
+        if (argc > 1)
+            n_bodies = std::stoi(argv[1]);
+        if (argc > 2)
+            n_steps = std::stoi(argv[2]);
+        if (argc > 3)
+            method = argv[3];
+        if (argc > 4)
+            step_size = std::stod(argv[4]);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error parsing arguments: " << e.what() << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Validation
+    if (n_bodies <= 0 || n_steps <= 0)
+    {
+        std::cerr << "n_bodies and n_steps must be positive.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    if (step_size <= 0)
+    {
+        std::cerr << "step_size must be positive.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    return std::make_tuple(n_bodies, n_steps, method, step_size);
+}
+
 int main(int argc, char *argv[])
 {
-    int N_BODIES = 100000;
-    int N_STEPS = 500;
-    double h_G = 6.67430e-11;
-    double h_h = 1e-2;
-    double h_epsilon = 1e-9;
+
+    // Simulation parameters
+
+    // double h_G = 6.67430e-11;
+    double h_G = 1;
+    double h_epsilon = 1e-2;
+
+    // Parse command line arguments
+
+    auto [N_BODIES, N_STEPS, init_method, h_h] = parseArguments(argc, argv);
+
+    // Print simulation parameters
+
+    std::cout << "Simulation parameters:\n";
+    std::cout << "Bodies: " << N_BODIES << "\n";
+    std::cout << "Steps: " << N_STEPS << "\n";
+    std::cout << "Method: " << init_method << "\n";
+    std::cout << "Step size: " << h_h << "\n";
+
+    // Set device
 
     cudaSetDevice(0);
+
+    // Print device properties
 
     std::cout << "Device properties:" << std::endl;
 
@@ -335,7 +421,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Initializing bodies..." << std::endl;
 
-    initializeBodies(h_q_n, h_p_n, h_m, N_BODIES, "naive");
+    initializeBodies(h_q_n, h_p_n, h_m, N_BODIES, "multiple gaussians");
 
     std::cout << "Copying memory..." << std::endl;
 
@@ -361,12 +447,14 @@ int main(int argc, char *argv[])
 
     // Streams and events to copy data back to host asynchronously
 
-    cudaStream_t streamCompute, streamCopy;
-    cudaEvent_t copyDone;
+    cudaEvent_t computeDone;
+    cudaStream_t streamCompute;
+    cudaStream_t streamCopy;
 
     cudaStreamCreate(&streamCompute);
     cudaStreamCreate(&streamCopy);
-    cudaEventCreate(&copyDone);
+
+    cudaEventCreate(&computeDone);
 
     std::cout << "Running simulation..." << std::endl;
 
@@ -393,15 +481,14 @@ int main(int argc, char *argv[])
             d_q_n_plus_one, d_p_n_plus_oneHalf, d_p_n_plus_threeHalfs, d_m, d_forces, N_BODIES);
 
         // Copy results back to host for history
+        cudaEventRecord(computeDone, streamCompute);
+        cudaStreamWaitEvent(streamCopy, computeDone, 0);
 
         cudaMemcpyAsync(h_q_history + N_BODIES * (step + 1),
-                        d_q_n_plus_one, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost);
+                        d_q_n_plus_one, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
 
         cudaMemcpyAsync(h_p_history + N_BODIES * (step + 1),
-                        d_p_n_plus_threeHalfs, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost);
-
-        cudaEventRecord(copyDone, streamCopy);
-        cudaStreamWaitEvent(streamCompute, copyDone, 0);
+                        d_p_n_plus_threeHalfs, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
 
         // Swap pointers for next iteration
         Vec3 *tmp_q = d_q_n;
@@ -413,10 +500,9 @@ int main(int argc, char *argv[])
         d_p_n_plus_threeHalfs = tmp_p;
     }
 
-    // Wait for the last copy to finish
+    // Wait for all operations to finish before accessing results
 
-    cudaEventRecord(copyDone, streamCopy);
-    cudaStreamWaitEvent(streamCompute, copyDone, 0);
+    cudaDeviceSynchronize();
 
     // Debug print first 10 bodies and 10 steps
 
@@ -429,8 +515,8 @@ int main(int argc, char *argv[])
     std::cout << "Writing results to file..." << std::endl;
 
     // For the CSV file, just as a proof of execution, we will only save first 10 bodies and 10 steps to avoid creating a huge file. For the binary file, we will save all data.
-    saveToCSV("nbody_proof_of_execution.csv", h_q_history, 10, 10);
-    saveToBinary("nbody.bin", h_q_history, N_BODIES, N_STEPS);
+    saveToCSV("nbody_proof_of_execution.csv", h_q_history, 10, 50);
+    saveToBinary("nbody_data.bin", h_q_history, N_BODIES, N_STEPS);
 
     // Free device memory
     cudaFree(d_q_n);
@@ -447,6 +533,11 @@ int main(int argc, char *argv[])
     cudaFreeHost(h_m);
     cudaFreeHost(h_q_history);
     cudaFreeHost(h_p_history);
+
+    // Destroy streams and events
+    cudaEventDestroy(computeDone);
+    cudaStreamDestroy(streamCompute);
+    cudaStreamDestroy(streamCopy);
 
     std::cout << "Simulation completed successfully!" << std::endl;
 

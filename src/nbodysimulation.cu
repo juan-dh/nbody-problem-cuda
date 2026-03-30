@@ -157,9 +157,9 @@ __host__ void initializeBodies(Vec3 *h_q_n, Vec3 *h_p_n, float *h_m, int n_bodie
         int cluster_size = n_bodies / n_clusters;
 
         std::mt19937 gen(std::random_device{}());
-        std::normal_distribution<float> cluster_dist(0.0f, 40.0f);
+        std::normal_distribution<float> cluster_dist(0.0f, 35.0f);
         std::normal_distribution<float> q_dist(0.0f, 15.0f);
-        std::normal_distribution<float> p_dist(0.0f, 20.0f);
+        std::normal_distribution<float> p_dist(0.0f, 15.0f);
         std::uniform_int_distribution<> mass_dist(0, 100);
 
         for (int c = 0; c < n_clusters; ++c)
@@ -308,7 +308,7 @@ std::tuple<int, int, std::string, double> parseArguments(int argc, char *argv[])
 
     // Default values
     int n_bodies = 100000;
-    int n_steps = 1000;
+    int n_steps = 1500;
     std::string method = "multiple gaussians";
     double step_size = 1e-3;
 
@@ -481,6 +481,7 @@ int main(int argc, char *argv[])
             d_q_n_plus_one, d_p_n_plus_oneHalf, d_p_n_plus_threeHalfs, d_m, d_forces, N_BODIES);
 
         // Copy results back to host for history
+
         cudaEventRecord(computeDone, streamCompute);
         cudaStreamWaitEvent(streamCopy, computeDone, 0);
 
@@ -491,6 +492,7 @@ int main(int argc, char *argv[])
                         d_p_n_plus_threeHalfs, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
 
         // Swap pointers for next iteration
+
         Vec3 *tmp_q = d_q_n;
         d_q_n = d_q_n_plus_one;
         d_q_n_plus_one = tmp_q;

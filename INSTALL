@@ -1,0 +1,39 @@
+# Installation Guide
+
+This project contains a CUDA-based N-body simulator and a Python visualization script for exporting the simulation as a GIF or MP4.
+
+## Requirements
+
+- NVIDIA GPU with CUDA support
+- CUDA Toolkit with `nvcc`
+- `make`
+- Python 3
+- Python packages:
+  - `numpy`
+  - `matplotlib`
+  - `imageio-ffmpeg`
+
+## 1. Verify CUDA
+
+Make sure the CUDA compiler is available:
+
+```bash
+nvcc --version
+```
+
+If `nvcc` is not found, install the CUDA Toolkit and ensure it is available in your `PATH`.
+
+## 2. Install Python Dependencies
+
+Install the visualization dependencies with `pip`:
+
+```bash
+python3 -m pip install numpy matplotlib imageio-ffmpeg
+```
+
+`imageio-ffmpeg` is used so MP4 export works without requiring a separate system-wide FFmpeg installation.
+
+
+## Execution
+
+Instructions for building and running the N-body simulation are in `README.md`.

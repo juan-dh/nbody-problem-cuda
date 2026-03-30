@@ -128,14 +128,15 @@ __global__ void kernelLeapFrogPart2(const Vec3 *d_q_n_plus_one, const Vec3 *d_p_
     d_p_n_plus_threeHalfs[i] = d_p_n_plus_oneHalf[i] + forces[i] * ((float)d_h);
 }
 
-__host__ void initializeBodies(Vec3 *h_q_n, Vec3 *h_p_n, float *h_m, int n_bodies, const std::string method)
+__host__ void initializeBodies(Vec3 *h_q_n, Vec3 *h_p_n, float *h_m, int n_bodies, const std::string method, unsigned int seed)
 {
+
+    std::mt19937 gen(seed);
     // Naive method
     if (method == "naive")
     {
         for (int i = 0; i < n_bodies; ++i)
         {
-            static std::mt19937 gen(std::random_device{}());
             std::uniform_int_distribution<> q_dist(-100, 100);
             h_q_n[i].x = static_cast<float>(q_dist(gen));
             h_q_n[i].y = static_cast<float>(q_dist(gen));
@@ -156,7 +157,6 @@ __host__ void initializeBodies(Vec3 *h_q_n, Vec3 *h_p_n, float *h_m, int n_bodie
         int n_clusters = 5;
         int cluster_size = n_bodies / n_clusters;
 
-        std::mt19937 gen(std::random_device{}());
         std::normal_distribution<float> cluster_dist(0.0f, 35.0f);
         std::normal_distribution<float> q_dist(0.0f, 15.0f);
         std::normal_distribution<float> p_dist(0.0f, 15.0f);
@@ -353,6 +353,7 @@ int main(int argc, char *argv[])
     // double h_G = 6.67430e-11;
     double h_G = 1;
     double h_epsilon = 1e-2;
+    unsigned int seed = 42;
 
     // Parse command line arguments
 
@@ -421,7 +422,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Initializing bodies..." << std::endl;
 
-    initializeBodies(h_q_n, h_p_n, h_m, N_BODIES, "multiple gaussians");
+    initializeBodies(h_q_n, h_p_n, h_m, N_BODIES, init_method, seed);
 
     std::cout << "Copying memory..." << std::endl;
 

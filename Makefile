@@ -17,3 +17,7 @@ run: build
 
 clean:
 	rm -rf $(BINDIR)
+	rm -rf nbody_proof_of_execution.csv
+	rm -rf nbody.bin
+
+all: clean build run

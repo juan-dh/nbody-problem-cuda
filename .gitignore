@@ -6,3 +6,5 @@ nbody_data.bin
 
 # Ignore the output video files
 *.mp4
+
+*.pyc

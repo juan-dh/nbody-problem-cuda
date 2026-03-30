@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, FFMpegWriter
+from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter
 import imageio_ffmpeg as ffmpeg
 import matplotlib as mpl
 
@@ -27,7 +27,11 @@ def load_nbody_binary(filename: str):
     return n_bodies, n_steps, data
 
 
-def random_sample_particles(data: np.ndarray, max_particles=None, seed=42):
+def random_sample_particles(
+    data: np.ndarray,
+    max_particles: int | None = None,
+    seed: int = 42,
+):
     n_particles = data.shape[1]
 
     if max_particles is None or max_particles >= n_particles:
@@ -39,7 +43,7 @@ def random_sample_particles(data: np.ndarray, max_particles=None, seed=42):
     return sampled, indices
 
 
-def sample_frames(data: np.ndarray, frame_stride=1):
+def sample_frames(data: np.ndarray, frame_stride: int = 1):
     return data[::frame_stride]
 
 
@@ -66,36 +70,124 @@ def draw_axes(ax, xlim, ylim, zlim, scale=0.25, lw=1.0, alpha=0.9):
     y_len = (ylim[1] - ylim[0]) * scale * 0.5
     z_len = (zlim[1] - zlim[0]) * scale * 0.5
 
+    # X axis
     ax.plot([-x_len, x_len], [0, 0], [0, 0], color="white", linewidth=lw, alpha=alpha)
+
+    # Y axis
     ax.plot([0, 0], [-y_len, y_len], [0, 0], color="white", linewidth=lw, alpha=alpha)
+
+    # Z axis
     ax.plot([0, 0], [0, 0], [-z_len, z_len], color="white", linewidth=lw, alpha=alpha)
 
 
-def make_video(
-    input_file="nbody_data.bin",
-    output_video="nbody_visualization.mp4",
-    max_particles=10000,
-    frame_stride=5,
-    fps=20,
-    marker_size=None,
-    alpha=None,
-    elev=20,
-    azim=45,
-    dpi=120,
-    xlim=(-150, 150),
-    ylim=(-150, 150),
-    zlim=(-150, 150),
-    seed=42,
-    zoom=1.9,
+def create_figure(elev, azim, xlim, ylim, zlim, zoom):
+    fig = plt.figure(figsize=(14, 8), facecolor="black")
+    ax = fig.add_axes([0.0, 0.0, 1.0, 1.0], projection="3d")
+    ax.set_facecolor("black")
+
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_zlim(*zlim)
+
+    ax.set_proj_type("persp")
+    ax.view_init(elev=elev, azim=azim)
+
+    ax.set_box_aspect(
+        (xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0]),
+        zoom=zoom,
+    )
+
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    ax.set_position([0.0, 0.0, 1.0, 1.0])
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_zlabel("")
+    ax.grid(False)
+
+    # Keep the GIF cleanup style as the shared look for both outputs.
+    try:
+        ax.xaxis.pane.fill = False
+        ax.yaxis.pane.fill = False
+        ax.zaxis.pane.fill = False
+        ax.xaxis.pane.set_edgecolor((0, 0, 0, 0))
+        ax.yaxis.pane.set_edgecolor((0, 0, 0, 0))
+        ax.zaxis.pane.set_edgecolor((0, 0, 0, 0))
+    except Exception:
+        pass
+
+    try:
+        ax.w_xaxis.line.set_color((0, 0, 0, 0))
+        ax.w_yaxis.line.set_color((0, 0, 0, 0))
+        ax.w_zaxis.line.set_color((0, 0, 0, 0))
+    except Exception:
+        pass
+
+    draw_axes(ax, xlim, ylim, zlim, lw=1.0, alpha=0.9)
+    return fig, ax
+
+
+def get_writer(output_path: str, fps: int):
+    extension = os.path.splitext(output_path)[1].lower()
+
+    if extension == ".gif":
+        writer = PillowWriter(fps=fps)
+        savefig_kwargs = {
+            "facecolor": "black",
+            "pad_inches": 0,
+        }
+        output_label = "GIF"
+    elif extension == ".mp4":
+        writer = FFMpegWriter(
+            fps=fps,
+            bitrate=3000,
+            metadata={"artist": "Juan Diego Haro"},
+        )
+        savefig_kwargs = {
+            "facecolor": "black",
+            "edgecolor": "black",
+            "transparent": False,
+            "pad_inches": 0,
+        }
+        output_label = "Video"
+    else:
+        raise ValueError(f"Unsupported output format: {extension}")
+
+    return writer, savefig_kwargs, output_label
+
+
+def make_animation(
+    input_file: str = "nbody_data.bin",
+    output_path: str = "nbody_visualization.gif",
+    max_particles: int | None = None,
+    frame_stride: int = 5,
+    fps: int = 15,
+    marker_size: float | None = None,
+    alpha: float | None = None,
+    elev: float = 20,
+    azim: float = 45,
+    dpi: int = 120,
+    xlim: tuple[float, float] = (-150, 150),
+    ylim: tuple[float, float] = (-150, 150),
+    zlim: tuple[float, float] = (-150, 150),
+    seed: int = 42,
+    zoom: float = 1.9,
 ):
-    if os.path.exists(output_video):
-        os.remove(output_video)
+    if os.path.exists(output_path):
+        os.remove(output_path)
 
     n_bodies, n_steps, data = load_nbody_binary(input_file)
     print(f"Original bodies: {n_bodies}")
     print(f"Original steps: {n_steps + 1}")
 
-    data, _ = random_sample_particles(data, max_particles=max_particles, seed=seed)
+    data, _ = random_sample_particles(
+        data,
+        max_particles=max_particles,
+        seed=seed,
+    )
     data = sample_frames(data, frame_stride=frame_stride)
 
     n_render = data.shape[1]
@@ -110,96 +202,22 @@ def make_video(
     print(f"Bodies used for rendering: {n_render}")
     print(f"Frames used for rendering: {n_frames}")
 
-    fig = plt.figure(figsize=(14, 8), facecolor="black")
-    fig.patch.set_facecolor("black")
-    fig.patch.set_alpha(1.0)
-
-    ax = fig.add_axes([0.0, 0.0, 1.0, 1.0], projection="3d")
-    ax.set_facecolor("black")
-    try:
-        ax.patch.set_facecolor("black")
-        ax.patch.set_alpha(1.0)
-    except Exception:
-        pass
-
-    ax.set_xlim(*xlim)
-    ax.set_ylim(*ylim)
-    ax.set_zlim(*zlim)
-
-    ax.set_proj_type("persp")
-    ax.view_init(elev=elev, azim=azim)
-
-    ax.set_box_aspect(
-        (xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0]),
-        zoom=zoom
-    )
-
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-    ax.set_position([0.0, 0.0, 1.0, 1.0])
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    ax.set_zlabel("")
-    ax.grid(False)
-
-    # Remove panes / background walls
-    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
-        try:
-            axis.pane.fill = False
-            axis.pane.set_facecolor((0, 0, 0, 0))
-            axis.pane.set_edgecolor((0, 0, 0, 0))
-        except Exception:
-            pass
-
-    try:
-        ax.xaxis.set_pane_color((0, 0, 0, 0))
-        ax.yaxis.set_pane_color((0, 0, 0, 0))
-        ax.zaxis.set_pane_color((0, 0, 0, 0))
-    except Exception:
-        pass
-
-    # Hide default axis lines
-    try:
-        ax.xaxis.line.set_color((0, 0, 0, 0))
-        ax.yaxis.line.set_color((0, 0, 0, 0))
-        ax.zaxis.line.set_color((0, 0, 0, 0))
-    except Exception:
-        pass
-
-    try:
-        ax.w_xaxis.line.set_color((0, 0, 0, 0))
-        ax.w_yaxis.line.set_color((0, 0, 0, 0))
-        ax.w_zaxis.line.set_color((0, 0, 0, 0))
-    except Exception:
-        pass
-
-    try:
-        ax.set_frame_on(False)
-    except Exception:
-        pass
-
-    draw_axes(ax, xlim, ylim, zlim, lw=1.0, alpha=0.9)
+    fig, ax = create_figure(elev, azim, xlim, ylim, zlim, zoom)
 
     pts0 = data[0]
     mask0 = visible_mask(pts0, xlim, ylim, zlim)
     pts0_vis = pts0[mask0]
 
-    if len(pts0_vis) == 0:
-        scatter = ax.scatter([], [], [], s=marker_size, c="white", alpha=alpha, depthshade=False, edgecolors="none")
-    else:
-        scatter = ax.scatter(
-            pts0_vis[:, 0],
-            pts0_vis[:, 1],
-            pts0_vis[:, 2],
-            s=marker_size,
-            c="white",
-            alpha=alpha,
-            depthshade=False,
-            edgecolors="none",
-        )
+    scatter = ax.scatter(
+        pts0_vis[:, 0] if len(pts0_vis) else [],
+        pts0_vis[:, 1] if len(pts0_vis) else [],
+        pts0_vis[:, 2] if len(pts0_vis) else [],
+        s=marker_size,
+        c="white",
+        alpha=alpha,
+        depthshade=False,
+        edgecolors="none",
+    )
 
     step_text = fig.text(
         0.02,
@@ -219,13 +237,10 @@ def make_video(
         if len(pts_vis) == 0:
             scatter._offsets3d = ([], [], [])
         else:
-            scatter._offsets3d = (
-                pts_vis[:, 0],
-                pts_vis[:, 1],
-                pts_vis[:, 2],
-            )
+            scatter._offsets3d = (pts_vis[:, 0], pts_vis[:, 1], pts_vis[:, 2])
 
-        step_text.set_text(f"Step: {frame_idx * frame_stride}")
+        original_frame = frame_idx * frame_stride
+        step_text.set_text(f"Step: {original_frame}")
         return scatter, step_text
 
     anim = FuncAnimation(
@@ -236,43 +251,17 @@ def make_video(
         blit=False,
     )
 
-    writer = FFMpegWriter(
-        fps=fps,
-        bitrate=3000,
-        metadata={"artist": "OpenAI"},
-    )
-
+    writer, savefig_kwargs, output_label = get_writer(output_path, fps)
     anim.save(
-        output_video,
+        output_path,
         writer=writer,
         dpi=dpi,
-        savefig_kwargs={
-            "facecolor": "black",
-            "edgecolor": "black",
-            "transparent": False,
-            "pad_inches": 0,
-        },
+        savefig_kwargs=savefig_kwargs,
     )
 
     plt.close(fig)
-    print(f"Video saved to: {output_video}")
+    print(f"{output_label} saved to: {output_path}")
 
 
 if __name__ == "__main__":
-    make_video(
-        input_file="nbody_data.bin",
-        output_video="nbody_visualization.mp4",
-        max_particles=None,
-        frame_stride=5,
-        fps=15,
-        marker_size=None,
-        alpha=None,
-        elev=20,
-        azim=45,
-        dpi=120,
-        xlim=(-150, 150),
-        ylim=(-150, 150),
-        zlim=(-150, 150),
-        seed=42,
-        zoom=1.9,
-    )
+    make_animation()

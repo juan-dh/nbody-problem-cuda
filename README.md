@@ -74,7 +74,7 @@ After execution, the simulator writes:
 - `nbody_data.bin`
   This is the full binary output used by the visualization script.
 - `nbody_proof_of_execution.csv`
-  This is a smaller CSV export used as a lightweight proof of execution.
+  This is a much smaller CSV export used only as a lightweight proof of execution. It does not contain the complete simulation history. Instead, it stores just a small subset of the total output so the results can be inspected quickly without generating an excessively large text file. The complete output of the simulation will be stored in `nbody_data.bin`.
 
 ### Create Visualizations
 

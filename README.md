@@ -9,9 +9,10 @@ This project implements a CUDA-based N-body simulation and a Python visualizatio
 The repository includes:
 
 - A CUDA simulator in `src/nbodysimulation.cu`
+- Older project versions preserved in `src`, including `nbodysimulationold1.cu` and `nbodysimulationold2.cu`
 - A `Makefile` to build and run the project
-- A shared Python visualization script in `nbody-visualization.py`
-- Generated outputs such as `nbody_data.bin`, `nbody_proof_of_execution.csv`, `nbody_visualization.gif`, and `nbody_visualization.mp4`
+- A Python visualization script in `nbody-visualization.py`
+- Generated outputs such as `nbody_data.bin`, `nbody_proof_of_execution.csv` and `nbody_visualization.gif`.
 
 
 ## How it works

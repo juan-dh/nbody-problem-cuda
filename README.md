@@ -116,3 +116,17 @@ make clean
 
 - The CUDA build currently expects CUDA headers under `/usr/local/cuda/include`.
 - The simulator currently writes `nbody_data.bin`, which is the input file expected by the visualization scripts.
+
+## The science behind the simulation
+
+The math and physics will be explained in the following notes.
+
+![N-Body notes](notes/notes.png)
+
+## Shared Memory Optimization
+
+The current implementation in `src/nbodysimulation.cu` improves the force computation by using a tiled shared-memory strategy inside the `computeForceTiled` kernel. Instead of having each thread read every body directly from global memory for every interaction, the kernel loads a block of positions and masses into shared memory and then lets all threads in the block reuse that tile. In practice, this means that once a tile is loaded, the data can be accessed many times from fast on-chip memory before moving on to the next tile. This is especially useful in the N-body problem because the same particle data is needed repeatedly when computing all pairwise interactions.
+
+This is a major difference from `src/nbodysimulationold1.cu`, where the algorithm first builds full pairwise arrays of distances and position differences for all bodies and stores them in global memory. That older version explicitly materializes `N x N` interaction data, writes it out to device memory, and later reads it again inside the Leapfrog update kernels. While that approach is conceptually straightforward, it creates a much heavier memory footprint and significantly more traffic to global memory.
+
+The shared-memory version avoids that overhead by computing force contributions directly while streaming tiles of particle data through the multiprocessor. As a result, it no longer needs to allocate and revisit large global arrays containing every pairwise distance and displacement. The computation stays closer to the arithmetic work that actually matters, and the GPU can spend less time waiting on memory. Compared with `nbodysimulationold1.cu`, the current approach is therefore more scalable, uses memory more efficiently, and follows a more standard CUDA optimization pattern for dense all-to-all interaction problems.

@@ -4,7 +4,7 @@
 
 ![N-Body Simulation GIF](nbody_visualization.gif)
 
-This project implements a CUDA-based N-body simulation and a Python visualization pipeline that can export the simulation as either a GIF or an MP4 video.
+The N-body problem studies how a system of particles evolves over time when every body interacts gravitationally with every other body. Because each particle contributes to the force acting on the rest, the computational cost grows quickly with the number of bodies, making the problem a classic challenge in scientific computing and high-performance simulation. This project explores that problem through a CUDA-based implementation of an N-body simulator, using the GPU to accelerate force evaluation and time integration, and complements it with a Python visualization pipeline that can render the resulting trajectories as either a GIF or an MP4 video.
 
 The repository includes:
 

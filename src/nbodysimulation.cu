@@ -307,8 +307,8 @@ std::tuple<int, int, std::string, double> parseArguments(int argc, char *argv[])
 {
 
     // Default values
-    int n_bodies = 100000;
-    int n_steps = 1500;
+    int n_bodies = 300000;
+    int n_steps = 1000;
     std::string method = "multiple gaussians";
     double step_size = 1e-3;
 
@@ -489,8 +489,7 @@ int main(int argc, char *argv[])
         cudaMemcpyAsync(h_q_history + N_BODIES * (step + 1),
                         d_q_n_plus_one, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
 
-        cudaMemcpyAsync(h_p_history + N_BODIES * (step + 1),
-                        d_p_n_plus_threeHalfs, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
+        // cudaMemcpyAsync(h_p_history + N_BODIES * (step + 1),d_p_n_plus_threeHalfs, N_BODIES * sizeof(Vec3), cudaMemcpyDeviceToHost, streamCopy);
 
         // Swap pointers for next iteration
 

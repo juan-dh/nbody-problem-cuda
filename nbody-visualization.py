@@ -66,18 +66,18 @@ def visible_mask(pts: np.ndarray, xlim, ylim, zlim):
 
 
 def draw_axes(ax, xlim, ylim, zlim, scale=0.25, lw=1.0, alpha=0.9):
-    x_len = (xlim[1] - xlim[0]) * scale * 0.5
-    y_len = (ylim[1] - ylim[0]) * scale * 0.5
-    z_len = (zlim[1] - zlim[0]) * scale * 0.5
+    x_len = max(0.0, xlim[1] * scale)
+    y_len = max(0.0, ylim[1] * scale)
+    z_len = max(0.0, zlim[1] * scale)
 
-    # X axis
-    ax.plot([-x_len, x_len], [0, 0], [0, 0], color="white", linewidth=lw, alpha=alpha)
+    # Positive X axis
+    ax.plot([0, x_len], [0, 0], [0, 0], color="red", linewidth=lw, alpha=alpha)
 
-    # Y axis
-    ax.plot([0, 0], [-y_len, y_len], [0, 0], color="white", linewidth=lw, alpha=alpha)
+    # Positive Y axis
+    ax.plot([0, 0], [0, y_len], [0, 0], color="green", linewidth=lw, alpha=alpha)
 
-    # Z axis
-    ax.plot([0, 0], [0, 0], [-z_len, z_len], color="white", linewidth=lw, alpha=alpha)
+    # Positive Z axis
+    ax.plot([0, 0], [0, 0], [0, z_len], color="blue", linewidth=lw, alpha=alpha)
 
 
 def create_figure(elev, azim, xlim, ylim, zlim, zoom):
@@ -219,6 +219,26 @@ def make_animation(
         edgecolors="none",
     )
 
+    simulation_particles_text = fig.text(
+        0.02,
+        0.06,
+        f"Simulation particles: {n_bodies}",
+        color="white",
+        fontsize=12,
+        ha="left",
+        va="bottom",
+    )
+
+    render_particles_text = fig.text(
+        0.02,
+        0.09,
+        f"Render particles: {n_render}",
+        color="white",
+        fontsize=12,
+        ha="left",
+        va="bottom",
+    )
+
     step_text = fig.text(
         0.02,
         0.03,
@@ -241,7 +261,7 @@ def make_animation(
 
         original_frame = frame_idx * frame_stride
         step_text.set_text(f"Step: {original_frame}")
-        return scatter, step_text
+        return scatter, simulation_particles_text, render_particles_text, step_text
 
     anim = FuncAnimation(
         fig,
